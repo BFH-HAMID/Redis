@@ -23,6 +23,12 @@ public final class ServerConfig {
     public static final int DEFAULT_DATABASES = 16;
     /** Upper bound on the number of logical databases. */
     public static final int MAX_DATABASES = 1024;
+    /** Default number of I/O threads; {@code 0} means the event loop does all socket work. */
+    public static final int DEFAULT_IO_THREADS = 0;
+    /** Upper bound on I/O threads. */
+    public static final int MAX_IO_THREADS = 64;
+    /** Default maximum number of simultaneous clients. */
+    public static final int DEFAULT_MAX_CLIENTS = 10_000;
 
     private final int port;
     private final String bind;
@@ -31,6 +37,8 @@ public final class ServerConfig {
     private final long maxMemory;
     private final int databases;
     private final int timeoutSeconds;
+    private final int ioThreads;
+    private final int maxClients;
 
     private ServerConfig(Builder b) {
         this.port = b.port;
@@ -40,6 +48,8 @@ public final class ServerConfig {
         this.maxMemory = b.maxMemory;
         this.databases = b.databases;
         this.timeoutSeconds = b.timeoutSeconds;
+        this.ioThreads = b.ioThreads;
+        this.maxClients = b.maxClients;
     }
 
     /**
@@ -86,6 +96,8 @@ public final class ServerConfig {
         b.maxMemory = maxMemory;
         b.databases = databases;
         b.timeoutSeconds = timeoutSeconds;
+        b.ioThreads = ioThreads;
+        b.maxClients = maxClients;
         return b;
     }
 
@@ -139,6 +151,20 @@ public final class ServerConfig {
     }
 
     /**
+     * @return the number of I/O threads; {@code 0} means the event loop handles sockets itself
+     */
+    public int ioThreads() {
+        return ioThreads;
+    }
+
+    /**
+     * @return the maximum number of simultaneous client connections
+     */
+    public int maxClients() {
+        return maxClients;
+    }
+
+    /**
      * Returns a description that never reveals the password.
      *
      * @return a diagnostic string
@@ -147,7 +173,7 @@ public final class ServerConfig {
     public String toString() {
         return "ServerConfig{bind=" + bind + ", port=" + port + ", databases=" + databases
                 + ", maxmemory=" + maxMemory + ", appendonly=" + appendOnly
-                + ", timeout=" + timeoutSeconds + ", requirepass="
+                + ", timeout=" + timeoutSeconds + ", io-threads=" + ioThreads + ", maxclients=" + maxClients + ", requirepass="
                 + (requirePass == null ? "<unset>" : "<redacted>") + "}";
     }
 
@@ -164,6 +190,8 @@ public final class ServerConfig {
         private long maxMemory;
         private int databases = DEFAULT_DATABASES;
         private int timeoutSeconds;
+        private int ioThreads = DEFAULT_IO_THREADS;
+        private int maxClients = DEFAULT_MAX_CLIENTS;
 
         private Builder() {
         }
@@ -244,6 +272,30 @@ public final class ServerConfig {
                 throw new IllegalArgumentException("timeout must not be negative: " + seconds);
             }
             this.timeoutSeconds = seconds;
+            return this;
+        }
+
+        /**
+         * @param count number of I/O threads, between 0 and {@link #MAX_IO_THREADS}
+         * @return this builder
+         */
+        public Builder ioThreads(int count) {
+            if (count < 0 || count > MAX_IO_THREADS) {
+                throw new IllegalArgumentException("io-threads must be between 0 and " + MAX_IO_THREADS + ": " + count);
+            }
+            this.ioThreads = count;
+            return this;
+        }
+
+        /**
+         * @param limit maximum number of clients, at least 1
+         * @return this builder
+         */
+        public Builder maxClients(int limit) {
+            if (limit < 1) {
+                throw new IllegalArgumentException("maxclients must be at least 1: " + limit);
+            }
+            this.maxClients = limit;
             return this;
         }
 

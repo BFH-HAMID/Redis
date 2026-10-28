@@ -83,6 +83,15 @@ class ConfigParserTest {
     }
 
     @Test
+    void parsesThreadingAndClientLimitDirectives() {
+        ServerConfig c = ConfigParser.parse("io-threads 3\nmaxclients 256\n");
+        assertEquals(3, c.ioThreads());
+        assertEquals(256, c.maxClients());
+        ConfigException e = assertThrows(ConfigException.class, () -> ConfigParser.parse("io-threads 999"));
+        assertTrue(e.getMessage().startsWith("line 1:"));
+    }
+
+    @Test
     void emptyTextYieldsDefaults() {
         assertEquals(ServerConfig.defaults().port(), ConfigParser.parse("").port());
     }

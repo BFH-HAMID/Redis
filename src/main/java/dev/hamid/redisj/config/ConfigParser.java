@@ -124,6 +124,8 @@ public final class ConfigParser {
                 case "maxmemory" -> b.maxMemory(MemorySize.parse(single(name, args)));
                 case "databases" -> b.databases(parseInt(name, single(name, args)));
                 case "timeout" -> b.timeoutSeconds(parseInt(name, single(name, args)));
+                case "io-threads" -> b.ioThreads(parseInt(name, single(name, args)));
+                case "maxclients" -> b.maxClients(parseInt(name, single(name, args)));
                 default -> throw new IllegalArgumentException("Bad directive \"" + name + "\"");
             }
         } catch (IllegalArgumentException e) {

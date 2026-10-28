@@ -40,6 +40,18 @@ class ServerConfigTest {
     }
 
     @Test
+    void ioThreadsAndMaxClientsHaveSafeDefaultsAndValidate() {
+        ServerConfig c = ServerConfig.defaults();
+        assertEquals(0, c.ioThreads());
+        assertEquals(10_000, c.maxClients());
+        ServerConfig.Builder b = ServerConfig.builder();
+        assertThrows(IllegalArgumentException.class, () -> b.ioThreads(-1));
+        assertThrows(IllegalArgumentException.class, () -> b.ioThreads(ServerConfig.MAX_IO_THREADS + 1));
+        assertThrows(IllegalArgumentException.class, () -> b.maxClients(0));
+        assertEquals(4, b.ioThreads(4).build().ioThreads());
+    }
+
+    @Test
     void emptyPasswordDisablesAuth() {
         ServerConfig c = ServerConfig.builder().requirePass("").build();
         assertFalse(c.requirePass().isPresent());

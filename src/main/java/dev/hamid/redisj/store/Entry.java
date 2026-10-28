@@ -51,6 +51,18 @@ public final class Entry {
      * @return the Redis type name of the value, as reported by {@code TYPE}
      */
     public String typeName() {
-        return value instanceof byte[] ? "string" : "unknown";
+        if (value instanceof byte[]) {
+            return "string";
+        }
+        if (value instanceof java.util.LinkedList<?>) {
+            return "list";
+        }
+        if (value instanceof java.util.LinkedHashMap<?, ?>) {
+            return "hash";
+        }
+        if (value instanceof java.util.LinkedHashSet<?>) {
+            return "set";
+        }
+        return "unknown";
     }
 }

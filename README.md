@@ -6,8 +6,8 @@
 RedisJ is a RESP-compatible, production-grade in-memory data store written in Java 21.
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
-> **Status:** Phases 1-4 of 18 done (scaffold, CI, RESP2/RESP3 protocol, NIO server, command
-> registry with string, key and expiry commands). See the roadmap below.
+> **Status:** Phases 1-4 committed; Phase 5 (lists, hashes, sets) written. CI is failing and nothing in
+> Phases 2-5 has been verified by a build yet. See the roadmap below.
 
 ## Build
 
@@ -38,6 +38,9 @@ socket reads, parsing and writes onto N I/O loops. Commands still run on the sin
 - Strings: `GET`, `SET` (`NX|XX|GET|EX|PX|EXAT|PXAT|KEEPTTL`), `GETSET`, `MGET`, `MSET`, `APPEND`,
   `STRLEN`, `GETRANGE`, `SETRANGE`
 - Counters: `INCR`, `DECR`, `INCRBY`, `DECRBY`, `INCRBYFLOAT`
+- Lists: `LPUSH`, `RPUSH`, `LPOP`, `RPOP`, `LLEN`, `LRANGE`, `LINDEX`
+- Hashes: `HSET`, `HGET`, `HDEL`, `HEXISTS`, `HLEN`, `HGETALL`, `HKEYS`, `HVALS`
+- Sets: `SADD`, `SREM`, `SISMEMBER`, `SMEMBERS`, `SCARD`
 
 Expired keys are removed on access and by an active cycle that runs about every 100 ms. When
 `requirepass` is set, every command except `AUTH` and `HELLO` needs authentication first.
@@ -56,7 +59,8 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 | 2 | RESP parser and writer | Done |
 | 3 | NIO event loop, I/O threads, graceful shutdown | Done |
 | 4 | Command registry, core commands, expiry | Done |
-| 5-6 | Data structures, transactions | Planned |
+| 5 | Lists, hashes, sets | Written, not yet verified |
+| 6 | Transactions | Planned |
 | 7-9 | AOF/RDB, Pub/Sub, Streams, eviction | Planned |
 | 10-11 | Replication, cluster, Raft | Planned |
 | 12-13 | HLL/Bloom/Geo, vector search | Planned |

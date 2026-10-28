@@ -4,8 +4,11 @@ import dev.hamid.redisj.command.handlers.ClientCommands;
 import dev.hamid.redisj.command.handlers.ConnectionCommands;
 import dev.hamid.redisj.command.handlers.CounterCommands;
 import dev.hamid.redisj.command.handlers.ExpireCommands;
+import dev.hamid.redisj.command.handlers.HashCommands;
 import dev.hamid.redisj.command.handlers.KeyCommands;
+import dev.hamid.redisj.command.handlers.ListCommands;
 import dev.hamid.redisj.command.handlers.ScanCommands;
+import dev.hamid.redisj.command.handlers.SetCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
 import dev.hamid.redisj.protocol.RespValue;
 import dev.hamid.redisj.server.ClientConnection;
@@ -53,6 +56,9 @@ public final class CommandRegistry implements RequestHandler {
         ExpireCommands.register(registry);
         ScanCommands.register(registry);
         StringCommands.register(registry);
+        ListCommands.register(registry);
+        HashCommands.register(registry);
+        SetCommands.register(registry);
         CounterCommands.register(registry);
         return registry;
     }

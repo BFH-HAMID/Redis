@@ -10,6 +10,7 @@ import dev.hamid.redisj.command.handlers.ListCommands;
 import dev.hamid.redisj.command.handlers.ScanCommands;
 import dev.hamid.redisj.command.handlers.SetCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
+import dev.hamid.redisj.command.handlers.TransactionCommands;
 import dev.hamid.redisj.protocol.RespValue;
 import dev.hamid.redisj.server.ClientConnection;
 import dev.hamid.redisj.server.RequestHandler;
@@ -25,8 +26,13 @@ import java.util.Optional;
  * Routes client requests to commands.
  *
  * <p>For each request the registry checks, in order: the request shape, that the command exists,
- * its arity, and authentication. Then it runs the command and converts a {@link CommandException}
- * into an error reply. The registry also drives the active expiry cycle from {@link #tick()}.
+ * its arity, and authentication. A request that fails one of these checks is rejected. Inside
+ * {@code MULTI} a valid request is queued and answered with {@code QUEUED}, and a rejected request
+ * also marks the transaction so that {@code EXEC} aborts. Otherwise the command runs through
+ * {@link CommandRunner}, and a {@link CommandException} becomes an error reply.
+ *
+ * <p>The registry also drives the active expiry cycle from {@link #tick()} and releases
+ * transaction state when a client closes.
  *
  * <p>Runs only on the execution loop.
  */
@@ -46,7 +52,7 @@ public final class CommandRegistry implements RequestHandler {
      * Creates a registry with every built-in command.
      *
      * @param state the shared server state
-     * @return a registry with all Phase 4 commands registered
+     * @return a registry with all commands registered
      */
     public static CommandRegistry withDefaults(ServerState state) {
         CommandRegistry registry = new CommandRegistry(state);
@@ -60,6 +66,7 @@ public final class CommandRegistry implements RequestHandler {
         HashCommands.register(registry);
         SetCommands.register(registry);
         CounterCommands.register(registry);
+        TransactionCommands.register(registry);
         return registry;
     }
 
@@ -105,19 +112,25 @@ public final class CommandRegistry implements RequestHandler {
         }
         Args args = new Args(raw);
         String name = args.upper(0);
+        ClientTransaction tx = state.findTransaction(client);
         Command command = commands.get(name);
         if (command == null) {
-            return error("ERR unknown command '" + args.text(0) + "', with args beginning with: "
+            return rejected(tx, "ERR unknown command '" + args.text(0) + "', with args beginning with: "
                     + preview(args));
         }
         if (!arityMatches(command.arity(), args.size())) {
-            return error("ERR wrong number of arguments for '" + name.toLowerCase(Locale.ROOT) + "' command");
+            return rejected(tx, "ERR wrong number of arguments for '" + name.toLowerCase(Locale.ROOT)
+                    + "' command");
         }
         if (state.requiresPassword() && !client.isAuthenticated() && !isAuthExempt(name)) {
-            return error("NOAUTH Authentication required.");
+            return rejected(tx, "NOAUTH Authentication required.");
+        }
+        if (tx != null && tx.inMulti() && !TransactionCommands.CONTROL.contains(name)) {
+            tx.enqueue(command, args);
+            return new RespValue.SimpleString("QUEUED");
         }
         try {
-            return command.execute(new CommandContext(client, args, state));
+            return CommandRunner.run(command, new CommandContext(client, args, state));
         } catch (CommandException e) {
             return error(e.getMessage());
         }
@@ -129,6 +142,14 @@ public final class CommandRegistry implements RequestHandler {
     @Override
     public void tick() {
         state.expiry().runActiveCycle();
+    }
+
+    /**
+     * Releases a closed client's transaction state and watches.
+     */
+    @Override
+    public void onClientClosed(ClientConnection client) {
+        state.releaseClient(client);
     }
 
     /**
@@ -150,6 +171,14 @@ public final class CommandRegistry implements RequestHandler {
             sb.append('\'').append(args.text(i)).append("' ");
         }
         return sb.toString();
+    }
+
+    /** Returns an error for a request that failed validation, marking an open MULTI as failed. */
+    private static RespValue rejected(ClientTransaction tx, String message) {
+        if (tx != null && tx.inMulti()) {
+            tx.markQueueFailed();
+        }
+        return error(message);
     }
 
     private static RespValue error(String message) {

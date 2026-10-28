@@ -4,7 +4,9 @@ import dev.hamid.redisj.server.ClientConnection;
 import dev.hamid.redisj.store.Databases;
 import dev.hamid.redisj.store.ExpiryManager;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -24,6 +26,8 @@ public final class ServerState {
 
     private final Databases databases;
     private final ExpiryManager expiry;
+    private final WatchTable watches = new WatchTable();
+    private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
     private final long startedAtMillis;
     private volatile Supplier<Collection<ClientConnection>> clients = () -> List.of();
@@ -54,6 +58,41 @@ public final class ServerState {
      */
     public Collection<ClientConnection> clients() {
         return clients.get();
+    }
+
+    /**
+     * @param client the client
+     * @return the client's transaction state, created on first use
+     */
+    public ClientTransaction transaction(ClientConnection client) {
+        return transactions.computeIfAbsent(client, c -> new ClientTransaction());
+    }
+
+    /**
+     * @param client the client
+     * @return the client's transaction state, or {@code null} if it never used transactions
+     */
+    public ClientTransaction findTransaction(ClientConnection client) {
+        return transactions.get(client);
+    }
+
+    /**
+     * @return the table of watched keys
+     */
+    public WatchTable watches() {
+        return watches;
+    }
+
+    /**
+     * Drops a disconnected client's transaction state and watches.
+     *
+     * @param client the client that closed
+     */
+    public void releaseClient(ClientConnection client) {
+        ClientTransaction tx = transactions.remove(client);
+        if (tx != null) {
+            watches.unwatchAll(tx);
+        }
     }
 
     /**

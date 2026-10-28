@@ -24,4 +24,13 @@ public interface RequestHandler {
      */
     default void tick() {
     }
+
+    /**
+     * Called on the execution loop after a client has closed, so the handler can release its
+     * per-client state. The default does nothing.
+     *
+     * @param client the connection that closed
+     */
+    default void onClientClosed(ClientConnection client) {
+    }
 }

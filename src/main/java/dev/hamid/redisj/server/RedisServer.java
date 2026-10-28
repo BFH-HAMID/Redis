@@ -169,6 +169,7 @@ public final class RedisServer implements AutoCloseable, ClientEvents {
     @Override
     public void onClosed(ClientConnection client) {
         clients.remove(client.id());
+        mainLoop.execute(() -> handler.onClientClosed(client));
     }
 
     private EventLoop[] buildIoLoops() throws IOException {

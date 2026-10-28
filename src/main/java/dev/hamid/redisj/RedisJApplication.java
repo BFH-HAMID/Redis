@@ -118,6 +118,10 @@ public final class RedisJApplication {
                 System::currentTimeMillis);
         state.configureMemory(config.maxMemory(), EvictionPolicy.parse(config.maxMemoryPolicy()));
         state.setAppendOnly(config.appendOnly());
+        if (config.clusterEnabled()) {
+            state.configureCluster(dev.hamid.redisj.cluster.ClusterState.of(config.clusterMyself(),
+                    config.clusterNodes()));
+        }
         CommandRegistry registry = CommandRegistry.withDefaults(state);
         Persistence persistence = Persistence.open(state, registry, Path.of("."), config.appendOnly());
         RedisServer server = new RedisServer(ServerOptions.from(config), registry);

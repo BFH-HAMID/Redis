@@ -41,6 +41,9 @@ public final class ServerConfig {
     private final int timeoutSeconds;
     private final int ioThreads;
     private final int maxClients;
+    private final boolean clusterEnabled;
+    private final String clusterMyself;
+    private final java.util.List<ClusterNodeConfig> clusterNodes;
 
     private ServerConfig(Builder b) {
         this.port = b.port;
@@ -53,6 +56,9 @@ public final class ServerConfig {
         this.timeoutSeconds = b.timeoutSeconds;
         this.ioThreads = b.ioThreads;
         this.maxClients = b.maxClients;
+        this.clusterEnabled = b.clusterEnabled;
+        this.clusterMyself = b.clusterMyself;
+        this.clusterNodes = java.util.List.copyOf(b.clusterNodes);
     }
 
     /**
@@ -102,6 +108,9 @@ public final class ServerConfig {
         b.timeoutSeconds = timeoutSeconds;
         b.ioThreads = ioThreads;
         b.maxClients = maxClients;
+        b.clusterEnabled = clusterEnabled;
+        b.clusterMyself = clusterMyself;
+        b.clusterNodes.addAll(clusterNodes);
         return b;
     }
 
@@ -176,6 +185,27 @@ public final class ServerConfig {
     }
 
     /**
+     * @return {@code true} if cluster mode is enabled
+     */
+    public boolean clusterEnabled() {
+        return clusterEnabled;
+    }
+
+    /**
+     * @return the id of this node in the cluster, or {@code null}
+     */
+    public String clusterMyself() {
+        return clusterMyself;
+    }
+
+    /**
+     * @return the configured cluster nodes, in directive order
+     */
+    public java.util.List<ClusterNodeConfig> clusterNodes() {
+        return clusterNodes;
+    }
+
+    /**
      * Returns a description that never reveals the password.
      *
      * @return a diagnostic string
@@ -204,6 +234,9 @@ public final class ServerConfig {
         private int timeoutSeconds;
         private int ioThreads = DEFAULT_IO_THREADS;
         private int maxClients = DEFAULT_MAX_CLIENTS;
+        private boolean clusterEnabled;
+        private String clusterMyself;
+        private final java.util.List<ClusterNodeConfig> clusterNodes = new java.util.ArrayList<>();
 
         private Builder() {
         }
@@ -310,6 +343,37 @@ public final class ServerConfig {
 
         /**
          * @param limit maximum number of clients, at least 1
+         * @return this builder
+         */
+        /**
+         * @param enabled {@code true} to enable cluster mode
+         * @return this builder
+         */
+        public Builder clusterEnabled(boolean enabled) {
+            this.clusterEnabled = enabled;
+            return this;
+        }
+
+        /**
+         * @param id this node's id, which must match one {@code cluster-node}
+         * @return this builder
+         */
+        public Builder clusterMyself(String id) {
+            this.clusterMyself = id;
+            return this;
+        }
+
+        /**
+         * @param node a cluster node and its slot range
+         * @return this builder
+         */
+        public Builder clusterNode(ClusterNodeConfig node) {
+            this.clusterNodes.add(node);
+            return this;
+        }
+
+        /**
+         * @param limit maximum simultaneous clients
          * @return this builder
          */
         public Builder maxClients(int limit) {

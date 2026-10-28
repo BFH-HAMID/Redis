@@ -7,8 +7,8 @@ RedisJ is a RESP-compatible, production-grade in-memory data store written in Ja
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
 > **Status:** Phases 1-4 committed; Phases 5 (lists, hashes, sets), 6 (transactions), 7 (AOF and
-> snapshots), 8 (pub/sub), 9 (streams and eviction) and 10 (minimal replication) written. CI is failing
-> and nothing in Phases 2-10 has been verified by a build yet. See the roadmap below.
+> snapshots), 8 (pub/sub), 9 (streams and eviction), 10 (minimal replication) and 11 (static cluster)
+> written. CI is failing and nothing in Phases 2-11 has been verified by a build yet. See the roadmap below.
 
 ## Build
 
@@ -44,6 +44,7 @@ socket reads, parsing and writes onto N I/O loops. Commands still run on the sin
 - Sets: `SADD`, `SREM`, `SISMEMBER`, `SMEMBERS`, `SCARD`
 - Transactions: `MULTI`, `EXEC`, `DISCARD`, `WATCH`, `UNWATCH`
 - Persistence: `SAVE` (see below)
+- Cluster: `CLUSTER KEYSLOT|MYID|INFO` (static slot map, see below)
 - Replication: `SYNC`, `REPLICAOF host port`, `REPLICAOF NO ONE` (full sync only)
 - Streams: `XADD`, `XLEN`, `XRANGE`, `XREVRANGE`, `XDEL`, `XTRIM`, `XREAD` (non-blocking)
 - Pub/sub: `SUBSCRIBE`, `UNSUBSCRIBE`, `PSUBSCRIBE`, `PUNSUBSCRIBE`, `PUBLISH`, `PUBSUB CHANNELS|NUMSUB|NUMPAT`
@@ -93,6 +94,18 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 - Not supported: `REPLICAOF` while `appendonly` is on, master `requirepass` (the replica sends no
   AUTH), `PSYNC`, replication offsets, and automatic reconnection.
 
+## Cluster (static)
+
+- Enable with `cluster-enabled yes`, `cluster-myself <id>`, and one `cluster-node <id> <host:port>
+  <from>-<to>` line per node. Every node gets the same list. The ranges must cover all 16384 slots
+  exactly once.
+- Keys are hashed with CRC16 modulo 16384, as in Redis Cluster, and `{hash tags}` are honoured.
+- A command whose keys belong to another node returns `MOVED <slot> <host:port>`. Keys in one
+  command that hash to different slots return `CROSSSLOT`.
+- Nodes do not talk to each other. Slots cannot move at runtime. There is no Raft, gossip, failover,
+  or `ASK` redirect. Commands with keys that are only found by parsing (such as `XREAD`) are not
+  routed.
+
 ## Pub/sub
 
 - A connection that holds at least one subscription can run only `SUBSCRIBE`, `UNSUBSCRIBE`,
@@ -117,8 +130,9 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 | 8 | Pub/Sub | Written, not yet verified |
 | 9 | Streams and eviction | Written, not yet verified |
 | 10 | Replication (minimal: full sync, read-only replica) | Written, not yet verified |
-| 11 | Cluster and Raft (replication stream, PSYNC, failover still to do) | Planned |
-| 12-13 | HLL/Bloom/Geo, vector search | Planned |
+| 11 | Static cluster: slot hashing, MOVED/CROSSSLOT (no Raft, no gossip) | Written, not yet verified |
+| 12 | Raft, gossip, failover, resharding | Planned |
+| 13 | HLL/Bloom/Geo, vector search | Planned |
 | 14-16 | Security, scripting, observability | Planned |
 | 17-18 | Testing, benchmarks, Docker, docs, release | Planned |
 

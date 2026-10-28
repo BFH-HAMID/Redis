@@ -127,11 +127,39 @@ public final class ConfigParser {
                 case "timeout" -> b.timeoutSeconds(parseInt(name, single(name, args)));
                 case "io-threads" -> b.ioThreads(parseInt(name, single(name, args)));
                 case "maxclients" -> b.maxClients(parseInt(name, single(name, args)));
+                case "cluster-enabled" -> b.clusterEnabled(parseYesNo(name, single(name, args)));
+                case "cluster-myself" -> b.clusterMyself(single(name, args));
+                case "cluster-node" -> b.clusterNode(parseClusterNode(args));
                 default -> throw new IllegalArgumentException("Bad directive \"" + name + "\"");
             }
         } catch (IllegalArgumentException e) {
             throw lineError(lineNo, e.getMessage());
         }
+    }
+
+    /** Parses {@code cluster-node <id> <host:port> <from>-<to>}. */
+    private static ClusterNodeConfig parseClusterNode(List<String> args) {
+        if (args.size() != 3) {
+            throw new IllegalArgumentException("cluster-node expects <id> <host:port> <from>-<to>");
+        }
+        String address = args.get(1);
+        int colon = address.lastIndexOf(':');
+        if (colon <= 0 || colon == address.length() - 1) {
+            throw new IllegalArgumentException("cluster-node address must be host:port: " + address);
+        }
+        int port = parseInt("cluster-node", address.substring(colon + 1));
+        String range = args.get(2);
+        int dash = range.indexOf('-');
+        if (dash <= 0) {
+            throw new IllegalArgumentException("cluster-node slots must be <from>-<to>: " + range);
+        }
+        int from = parseInt("cluster-node", range.substring(0, dash));
+        int to = parseInt("cluster-node", range.substring(dash + 1));
+        int max = dev.hamid.redisj.cluster.KeySlot.SLOTS - 1;
+        if (from < 0 || to > max || from > to) {
+            throw new IllegalArgumentException("cluster-node slots must be within 0-" + max + ": " + range);
+        }
+        return new ClusterNodeConfig(args.get(0), address.substring(0, colon), port, from, to);
     }
 
     private static String single(String name, List<String> args) {

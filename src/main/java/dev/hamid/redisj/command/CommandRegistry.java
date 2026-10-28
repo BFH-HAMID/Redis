@@ -13,6 +13,8 @@ import dev.hamid.redisj.command.handlers.SetCommands;
 import dev.hamid.redisj.command.handlers.StreamCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
 import dev.hamid.redisj.command.handlers.TransactionCommands;
+import dev.hamid.redisj.command.handlers.ClusterCommands;
+import dev.hamid.redisj.cluster.ClusterRouting;
 import dev.hamid.redisj.replication.ReplicationCommands;
 import dev.hamid.redisj.protocol.RespValue;
 import dev.hamid.redisj.server.ClientConnection;
@@ -73,6 +75,7 @@ public final class CommandRegistry implements RequestHandler {
         PubSubCommands.register(registry);
         StreamCommands.register(registry);
         ReplicationCommands.register(registry);
+        ClusterCommands.register(registry);
         return registry;
     }
 
@@ -144,6 +147,13 @@ public final class CommandRegistry implements RequestHandler {
         if (state.replicaOf().isPresent() && !state.replaying()
                 && command.flags().contains(Command.Flag.WRITE)) {
             return rejected(tx, "READONLY You can't write against a read only replica.");
+        }
+        if (state.cluster().isPresent()) {
+            Optional<String> routing = ClusterRouting.check(state.cluster().get(),
+                    KeySpec.keysOf(command, args));
+            if (routing.isPresent()) {
+                return rejected(tx, routing.get());
+            }
         }
         if (tx != null && tx.inMulti() && !TransactionCommands.CONTROL.contains(name)) {
             tx.enqueue(command, args);

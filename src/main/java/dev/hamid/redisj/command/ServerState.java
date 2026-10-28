@@ -35,6 +35,7 @@ public final class ServerState {
     private boolean replaying;
     private String replicaOf;
     private boolean appendOnly;
+    private dev.hamid.redisj.cluster.ClusterState cluster;
     private WriteLog writeLog = WriteLog.NONE;
     private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
@@ -195,6 +196,22 @@ public final class ServerState {
      */
     public Optional<String> replicaOf() {
         return Optional.ofNullable(replicaOf);
+    }
+
+    /**
+     * Enables cluster mode with the given static slot map. Called once at startup.
+     *
+     * @param map the cluster map, or {@code null} to disable cluster mode
+     */
+    public void configureCluster(dev.hamid.redisj.cluster.ClusterState map) {
+        this.cluster = map;
+    }
+
+    /**
+     * @return the cluster map, or empty if cluster mode is off
+     */
+    public Optional<dev.hamid.redisj.cluster.ClusterState> cluster() {
+        return Optional.ofNullable(cluster);
     }
 
     /**

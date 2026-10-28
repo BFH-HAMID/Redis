@@ -7,8 +7,8 @@ RedisJ is a RESP-compatible, production-grade in-memory data store written in Ja
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
 > **Status:** Phases 1-4 committed; Phases 5 (lists, hashes, sets), 6 (transactions), 7 (AOF and
-> snapshots), 8 (pub/sub) and 9 (streams and eviction) written. CI is failing and nothing in Phases
-> 2-9 has been verified by a build yet. See the roadmap below.
+> snapshots), 8 (pub/sub), 9 (streams and eviction) and 10 (minimal replication) written. CI is failing
+> and nothing in Phases 2-10 has been verified by a build yet. See the roadmap below.
 
 ## Build
 
@@ -44,6 +44,7 @@ socket reads, parsing and writes onto N I/O loops. Commands still run on the sin
 - Sets: `SADD`, `SREM`, `SISMEMBER`, `SMEMBERS`, `SCARD`
 - Transactions: `MULTI`, `EXEC`, `DISCARD`, `WATCH`, `UNWATCH`
 - Persistence: `SAVE` (see below)
+- Replication: `SYNC`, `REPLICAOF host port`, `REPLICAOF NO ONE` (full sync only)
 - Streams: `XADD`, `XLEN`, `XRANGE`, `XREVRANGE`, `XDEL`, `XTRIM`, `XREAD` (non-blocking)
 - Pub/sub: `SUBSCRIBE`, `UNSUBSCRIBE`, `PSUBSCRIBE`, `PUNSUBSCRIBE`, `PUBLISH`, `PUBSUB CHANNELS|NUMSUB|NUMPAT`
 
@@ -81,6 +82,17 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 - Evictions are logged to the append-only file as `DEL`, so replay removes the same keys.
 - Not implemented: `allkeys-lru`, `volatile-*` policies, and blocking `XREAD`.
 
+## Replication (minimal)
+
+- `REPLICAOF host port` copies the master's dataset once, using `SYNC`, and makes this server
+  read-only. `REPLICAOF NO ONE` makes it writable again.
+- The dataset is sent as a RedisJ snapshot, not Redis's RDB format.
+- Only a full sync. Writes made on the master after the copy are **not** sent to the replica.
+- The transfer blocks the replica's execution loop until it finishes or times out (5 s to connect,
+  30 s to read).
+- Not supported: `REPLICAOF` while `appendonly` is on, master `requirepass` (the replica sends no
+  AUTH), `PSYNC`, replication offsets, and automatic reconnection.
+
 ## Pub/sub
 
 - A connection that holds at least one subscription can run only `SUBSCRIBE`, `UNSUBSCRIBE`,
@@ -104,7 +116,8 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 | 7 | AOF and snapshots | Written, not yet verified |
 | 8 | Pub/Sub | Written, not yet verified |
 | 9 | Streams and eviction | Written, not yet verified |
-| 10-11 | Replication, cluster, Raft | Planned |
+| 10 | Replication (minimal: full sync, read-only replica) | Written, not yet verified |
+| 11 | Cluster and Raft (replication stream, PSYNC, failover still to do) | Planned |
 | 12-13 | HLL/Bloom/Geo, vector search | Planned |
 | 14-16 | Security, scripting, observability | Planned |
 | 17-18 | Testing, benchmarks, Docker, docs, release | Planned |

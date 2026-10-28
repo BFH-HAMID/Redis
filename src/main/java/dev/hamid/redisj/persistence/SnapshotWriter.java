@@ -6,6 +6,7 @@ import dev.hamid.redisj.store.Entry;
 import dev.hamid.redisj.store.Stream;
 import dev.hamid.redisj.store.StreamId;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +42,32 @@ public final class SnapshotWriter {
      */
     public static void write(ServerState state, Path target) throws IOException {
         try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(target))) {
+            writeTo(state, out);
+        }
+    }
+
+    /**
+     * Encodes the dataset in memory, for sending to a replica.
+     *
+     * @param state the server state to snapshot
+     * @return the encoded snapshot
+     * @throws IOException if encoding fails
+     */
+    public static byte[] toBytes(ServerState state) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        writeTo(state, bytes);
+        return bytes.toByteArray();
+    }
+
+    /**
+     * Writes the dataset to a stream.
+     *
+     * @param state the server state to snapshot
+     * @param out   the destination
+     * @throws IOException if writing fails
+     */
+    static void writeTo(ServerState state, OutputStream out) throws IOException {
+        {
             for (int index = 0; index < state.databases().count(); index++) {
                 Database db = state.databases().get(index);
                 List<String> keys = db.liveKeys();

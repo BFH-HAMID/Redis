@@ -33,6 +33,8 @@ public final class ServerState {
     private long maxMemory;
     private EvictionPolicy evictionPolicy = EvictionPolicy.NOEVICTION;
     private boolean replaying;
+    private String replicaOf;
+    private boolean appendOnly;
     private WriteLog writeLog = WriteLog.NONE;
     private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
@@ -160,6 +162,39 @@ public final class ServerState {
      */
     public boolean replaying() {
         return replaying;
+    }
+
+    /**
+     * Records whether the append-only file is enabled. Replication needs to know this, because a
+     * snapshot load would otherwise leave stale records in the file.
+     *
+     * @param enabled {@code true} if {@code appendonly} is on
+     */
+    public void setAppendOnly(boolean enabled) {
+        this.appendOnly = enabled;
+    }
+
+    /**
+     * @return {@code true} if the append-only file is enabled
+     */
+    public boolean appendOnly() {
+        return appendOnly;
+    }
+
+    /**
+     * Sets or clears the master this server replicates. Used by the replication commands.
+     *
+     * @param master {@code host:port}, or {@code null} to stop replicating
+     */
+    public void setReplicaOf(String master) {
+        this.replicaOf = master;
+    }
+
+    /**
+     * @return {@code host:port} of the master, or empty if this server is not a replica
+     */
+    public Optional<String> replicaOf() {
+        return Optional.ofNullable(replicaOf);
     }
 
     /**

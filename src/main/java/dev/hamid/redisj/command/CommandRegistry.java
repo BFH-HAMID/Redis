@@ -13,6 +13,7 @@ import dev.hamid.redisj.command.handlers.SetCommands;
 import dev.hamid.redisj.command.handlers.StreamCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
 import dev.hamid.redisj.command.handlers.TransactionCommands;
+import dev.hamid.redisj.replication.ReplicationCommands;
 import dev.hamid.redisj.protocol.RespValue;
 import dev.hamid.redisj.server.ClientConnection;
 import dev.hamid.redisj.server.RequestHandler;
@@ -71,6 +72,7 @@ public final class CommandRegistry implements RequestHandler {
         TransactionCommands.register(registry);
         PubSubCommands.register(registry);
         StreamCommands.register(registry);
+        ReplicationCommands.register(registry);
         return registry;
     }
 
@@ -138,6 +140,10 @@ public final class CommandRegistry implements RequestHandler {
                         + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET"
                         + " are allowed in this context");
             }
+        }
+        if (state.replicaOf().isPresent() && !state.replaying()
+                && command.flags().contains(Command.Flag.WRITE)) {
+            return rejected(tx, "READONLY You can't write against a read only replica.");
         }
         if (tx != null && tx.inMulti() && !TransactionCommands.CONTROL.contains(name)) {
             tx.enqueue(command, args);

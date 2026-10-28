@@ -13,12 +13,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Replays a file of RESP-encoded commands through the command registry, which rebuilds the
- * dataset at startup.
+ * Replays RESP-encoded commands through the command registry, which rebuilds the dataset at
+ * startup or when a replica loads a master's snapshot.
  *
- * <p>An incomplete record at the end of the file, such as one cut short by a crash, is discarded
- * and the file is truncated to the last complete record. A reply that is an error stops the replay,
- * because the file then no longer matches the dataset.
+ * <p>For files, an incomplete record at the end, such as one cut short by a crash, is discarded and
+ * the file is truncated to the last complete record. A reply that is an error stops the replay,
+ * because the data then no longer matches the log.
  */
 public final class Replayer {
 
@@ -32,11 +32,17 @@ public final class Replayer {
     public record Result(int records, int lastDb) {
     }
 
+    /** Internal outcome, including how many bytes were complete records. */
+    private record Outcome(Result result, int goodEnd) {
+    }
+
     private Replayer() {
     }
 
     /**
-     * @param file     the file to replay; a missing file replays nothing
+     * Replays a file. A missing file replays nothing. A torn final record is removed from the file.
+     *
+     * @param file     the file to replay
      * @param registry the registry that applies each command
      * @return what was replayed
      * @throws IOException if the file is unreadable, corrupt, or a command fails on replay
@@ -46,6 +52,34 @@ public final class Replayer {
             return new Result(0, 0);
         }
         byte[] bytes = Files.readAllBytes(file);
+        Outcome outcome = apply(bytes, registry, file.toString());
+        if (outcome.goodEnd() < bytes.length) {
+            try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+                channel.truncate(outcome.goodEnd());
+            }
+        }
+        return outcome.result();
+    }
+
+    /**
+     * Replays an in-memory command stream, such as a snapshot received from a master. A torn final
+     * record is an error here, because a transfer must be complete.
+     *
+     * @param bytes    the encoded commands
+     * @param registry the registry that applies each command
+     * @return what was replayed
+     * @throws IOException if the stream is corrupt, incomplete, or a command fails
+     */
+    public static Result applyBytes(byte[] bytes, CommandRegistry registry) throws IOException {
+        Outcome outcome = apply(bytes, registry, "snapshot");
+        if (outcome.goodEnd() < bytes.length) {
+            throw new IOException("snapshot is truncated");
+        }
+        return outcome.result();
+    }
+
+    private static Outcome apply(byte[] bytes, CommandRegistry registry, String source)
+            throws IOException {
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         RespParser parser = new RespParser();
         ClientConnection client = ClientConnection.detached(0);
@@ -57,7 +91,7 @@ public final class Replayer {
             try {
                 value = parser.parse(buffer);
             } catch (RespProtocolException e) {
-                throw new IOException("corrupt record in " + file + " at byte " + start + ": "
+                throw new IOException("corrupt record in " + source + " at byte " + start + ": "
                         + e.getMessage(), e);
             }
             if (value == null) {
@@ -65,20 +99,15 @@ public final class Replayer {
             }
             goodEnd = buffer.position();
             if (!(value instanceof RespValue.Array)) {
-                throw new IOException("unexpected non-array record in " + file + " at byte " + start);
+                throw new IOException("unexpected non-array record in " + source + " at byte " + start);
             }
             RespValue reply = registry.handle(client, value);
             if (reply instanceof RespValue.Error error) {
-                throw new IOException("replay failed in " + file + " at byte " + start + ": "
+                throw new IOException("replay failed in " + source + " at byte " + start + ": "
                         + error.message());
             }
             records++;
         }
-        if (goodEnd < bytes.length) {
-            try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
-                channel.truncate(goodEnd);
-            }
-        }
-        return new Result(records, client.db());
+        return new Outcome(new Result(records, client.db()), goodEnd);
     }
 }

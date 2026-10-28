@@ -117,6 +117,7 @@ public final class RedisJApplication {
         ServerState state = new ServerState(config.databases(), config.requirePass().orElse(null),
                 System::currentTimeMillis);
         state.configureMemory(config.maxMemory(), EvictionPolicy.parse(config.maxMemoryPolicy()));
+        state.setAppendOnly(config.appendOnly());
         CommandRegistry registry = CommandRegistry.withDefaults(state);
         Persistence persistence = Persistence.open(state, registry, Path.of("."), config.appendOnly());
         RedisServer server = new RedisServer(ServerOptions.from(config), registry);

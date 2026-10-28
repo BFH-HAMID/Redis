@@ -6,8 +6,8 @@
 RedisJ is a RESP-compatible, production-grade in-memory data store written in Java 21.
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
-> **Status:** Phase 1 of 18 (scaffold and CI). The server does not accept
-> connections yet. See the roadmap below.
+> **Status:** Phases 1-2 of 18 done (scaffold, CI, RESP2/RESP3 protocol). The server does not
+> accept connections yet; the NIO event loop arrives in Phase 3. See the roadmap below.
 
 ## Build
 
@@ -29,8 +29,9 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 
 | Phase | Topic | Status |
 |---|---|---|
-| 0-1 | Setup, CI | In progress |
-| 2-4 | RESP, NIO event loop, core commands | Planned |
+| 0-1 | Setup, CI | Done |
+| 2 | RESP parser and writer | Done |
+| 3-4 | NIO event loop, core commands | Planned |
 | 5-6 | Data structures, transactions | Planned |
 | 7-9 | AOF/RDB, Pub/Sub, Streams, eviction | Planned |
 | 10-11 | Replication, cluster, Raft | Planned |

@@ -1,0 +1,19 @@
+# RedisJ example configuration (redisj.conf)
+# Directives are case-insensitive. Sizes accept k/kb/m/mb/g/gb suffixes.
+
+port 6379
+bind 127.0.0.1
+
+# Uncomment to require AUTH with this password.
+# requirepass "change-me"
+
+databases 16
+
+# Memory limit, 0 means unlimited.
+maxmemory 0
+
+# Append-only file persistence (used from Phase 7).
+appendonly no
+
+# Idle client timeout in seconds, 0 disables it.
+timeout 0

@@ -1,0 +1,38 @@
+# Build output
+target/
+*.class
+
+# Maven wrapper and tool caches
+.mvn/wrapper/maven-wrapper.jar
+.cache/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime data created by RedisJ (never commit database snapshots or logs)
+*.rdb
+*.aof
+*.log
+redisj-data/
+dump.rdb
+appendonly.aof
+
+# Local configuration that may contain secrets
+redisj-local.conf
+*.pem
+*.key
+
+# Persistence data files written by a local server run
+appendonly.aof
+appendonly.aof.tmp
+dump.redisj
+dump.redisj.tmp

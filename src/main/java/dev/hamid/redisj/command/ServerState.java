@@ -1,5 +1,6 @@
 package dev.hamid.redisj.command;
 
+import dev.hamid.redisj.pubsub.PubSub;
 import dev.hamid.redisj.server.ClientConnection;
 import dev.hamid.redisj.store.Databases;
 import dev.hamid.redisj.store.ExpiryManager;
@@ -27,6 +28,7 @@ public final class ServerState {
     private final Databases databases;
     private final ExpiryManager expiry;
     private final WatchTable watches = new WatchTable();
+    private final PubSub pubsub = new PubSub();
     private WriteLog writeLog = WriteLog.NONE;
     private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
@@ -110,6 +112,14 @@ public final class ServerState {
         if (tx != null) {
             watches.unwatchAll(tx);
         }
+        pubsub.releaseClient(client);
+    }
+
+    /**
+     * @return the publish/subscribe registry
+     */
+    public PubSub pubsub() {
+        return pubsub;
     }
 
     /**

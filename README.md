@@ -6,8 +6,9 @@
 RedisJ is a RESP-compatible, production-grade in-memory data store written in Java 21.
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
-> **Status:** Phases 1-4 committed; Phases 5 (lists, hashes, sets), 6 (transactions) and 7 (AOF and
-> snapshots) written. CI is failing and nothing in Phases 2-7 has been verified by a build yet. See the roadmap below.
+> **Status:** Phases 1-4 committed; Phases 5 (lists, hashes, sets), 6 (transactions), 7 (AOF and
+> snapshots) and 8 (pub/sub) written. CI is failing and nothing in Phases 2-8 has been verified by a
+> build yet. See the roadmap below.
 
 ## Build
 
@@ -43,6 +44,7 @@ socket reads, parsing and writes onto N I/O loops. Commands still run on the sin
 - Sets: `SADD`, `SREM`, `SISMEMBER`, `SMEMBERS`, `SCARD`
 - Transactions: `MULTI`, `EXEC`, `DISCARD`, `WATCH`, `UNWATCH`
 - Persistence: `SAVE` (see below)
+- Pub/sub: `SUBSCRIBE`, `UNSUBSCRIBE`, `PSUBSCRIBE`, `PUNSUBSCRIBE`, `PUBLISH`, `PUBSUB CHANNELS|NUMSUB|NUMPAT`
 
 Expired keys are removed on access and by an active cycle that runs about every 100 ms. When
 `requirepass` is set, every command except `AUTH` and `HELLO` needs authentication first.
@@ -65,6 +67,16 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 - The snapshot format is a RESP command stream that rebuilds the dataset. It is **not** Redis's binary
   RDB format, so RDB files from a real Redis server cannot be loaded. `BGSAVE` is not implemented.
 
+## Pub/sub
+
+- A connection that holds at least one subscription can run only `SUBSCRIBE`, `UNSUBSCRIBE`,
+  `PSUBSCRIBE`, `PUNSUBSCRIBE`, `PING`, and `QUIT`. Other commands get an error, as in Redis.
+- Messages are delivered as RESP2 arrays: `["message", channel, payload]`, or
+  `["pmessage", pattern, channel, payload]` for pattern subscribers.
+- `PUBLISH` returns the number of deliveries. Messages are not written to the append-only file.
+- Known differences from Redis: RESP3 push frames are not used, so RESP3 clients also receive arrays.
+  Subscriptions are not kept across restarts, and `RESET` is not implemented.
+
 ## Roadmap
 
 | Phase | Topic | Status |
@@ -76,7 +88,8 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 | 5 | Lists, hashes, sets | Written, not yet verified |
 | 6 | Transactions (MULTI/EXEC, WATCH) | Written, not yet verified |
 | 7 | AOF and snapshots | Written, not yet verified |
-| 8-9 | Pub/Sub, Streams, eviction | Planned |
+| 8 | Pub/Sub | Written, not yet verified |
+| 9 | Streams and eviction | Planned |
 | 10-11 | Replication, cluster, Raft | Planned |
 | 12-13 | HLL/Bloom/Geo, vector search | Planned |
 | 14-16 | Security, scripting, observability | Planned |

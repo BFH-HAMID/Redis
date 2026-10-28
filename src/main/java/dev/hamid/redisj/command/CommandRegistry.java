@@ -7,6 +7,7 @@ import dev.hamid.redisj.command.handlers.ExpireCommands;
 import dev.hamid.redisj.command.handlers.HashCommands;
 import dev.hamid.redisj.command.handlers.KeyCommands;
 import dev.hamid.redisj.command.handlers.ListCommands;
+import dev.hamid.redisj.command.handlers.PubSubCommands;
 import dev.hamid.redisj.command.handlers.ScanCommands;
 import dev.hamid.redisj.command.handlers.SetCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
@@ -67,6 +68,7 @@ public final class CommandRegistry implements RequestHandler {
         SetCommands.register(registry);
         CounterCommands.register(registry);
         TransactionCommands.register(registry);
+        PubSubCommands.register(registry);
         return registry;
     }
 
@@ -124,6 +126,16 @@ public final class CommandRegistry implements RequestHandler {
         }
         if (state.requiresPassword() && !client.isAuthenticated() && !isAuthExempt(name)) {
             return rejected(tx, "NOAUTH Authentication required.");
+        }
+        if (state.pubsub().isSubscribed(client)) {
+            if (name.equals("PING") && args.size() <= 2) {
+                return PubSubCommands.subscribedPing(args);
+            }
+            if (!PubSubCommands.SUBSCRIBED_COMMANDS.contains(name)) {
+                return rejected(tx, "ERR Can't execute '" + name.toLowerCase(Locale.ROOT)
+                        + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET"
+                        + " are allowed in this context");
+            }
         }
         if (tx != null && tx.inMulti() && !TransactionCommands.CONTROL.contains(name)) {
             tx.enqueue(command, args);

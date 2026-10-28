@@ -10,6 +10,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,6 +109,13 @@ public final class RedisServer implements AutoCloseable, ClientEvents {
      */
     public int clientCount() {
         return clients.size();
+    }
+
+    /**
+     * @return a live, read-only view of the connected clients; safe to read from any thread
+     */
+    public Collection<ClientConnection> clients() {
+        return Collections.unmodifiableCollection(clients.values());
     }
 
     /**
@@ -230,8 +239,9 @@ public final class RedisServer implements AutoCloseable, ClientEvents {
         }
     }
 
-    /** Runs on the main loop every ~100 ms: closes clients idle past the configured timeout. */
+    /** Runs on the main loop every ~100 ms: runs handler housekeeping, then closes idle clients. */
     private void tick() {
+        handler.tick();
         int timeout = options.idleTimeoutSeconds();
         if (timeout <= 0) {
             return;

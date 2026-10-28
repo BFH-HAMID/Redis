@@ -17,4 +17,11 @@ public interface RequestHandler {
      * @return the reply to send, or {@code null} to send nothing
      */
     RespValue handle(ClientConnection client, RespValue request);
+
+    /**
+     * Periodic housekeeping, called on the execution loop about every 100 ms. The default does
+     * nothing.
+     */
+    default void tick() {
+    }
 }

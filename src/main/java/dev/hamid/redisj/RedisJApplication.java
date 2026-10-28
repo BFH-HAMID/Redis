@@ -2,8 +2,9 @@ package dev.hamid.redisj;
 
 import dev.hamid.redisj.config.CommandLineArgs;
 import dev.hamid.redisj.config.ConfigException;
+import dev.hamid.redisj.command.CommandRegistry;
+import dev.hamid.redisj.command.ServerState;
 import dev.hamid.redisj.config.ServerConfig;
-import dev.hamid.redisj.server.BasicRequestHandler;
 import dev.hamid.redisj.server.RedisServer;
 import dev.hamid.redisj.server.ServerOptions;
 import java.io.IOException;
@@ -111,7 +112,11 @@ public final class RedisJApplication {
      * @throws Exception if the server cannot bind or the wait is interrupted
      */
     static void serveUntilShutdown(ServerConfig config) throws Exception {
-        RedisServer server = new RedisServer(ServerOptions.from(config), new BasicRequestHandler());
+        ServerState state = new ServerState(config.databases(), config.requirePass().orElse(null),
+                System::currentTimeMillis);
+        CommandRegistry registry = CommandRegistry.withDefaults(state);
+        RedisServer server = new RedisServer(ServerOptions.from(config), registry);
+        state.attachClients(server::clients);
         Runtime.getRuntime().addShutdownHook(new Thread(server::close, "redisj-shutdown"));
         server.start();
         System.out.println("Ready to accept connections on " + config.bind() + ":" + server.port());

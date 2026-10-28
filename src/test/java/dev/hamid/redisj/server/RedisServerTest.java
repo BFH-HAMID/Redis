@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.hamid.redisj.command.CommandRegistry;
+import dev.hamid.redisj.command.ServerState;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +30,12 @@ class RedisServerTest {
         servers.clear();
     }
 
+    private static CommandRegistry registry() {
+        return CommandRegistry.withDefaults(new ServerState(16, null, System::currentTimeMillis));
+    }
+
     private RedisServer start(ServerOptions options) throws IOException {
-        RedisServer server = new RedisServer(options, new BasicRequestHandler());
+        RedisServer server = new RedisServer(options, registry());
         servers.add(server);
         server.start();
         return server;
@@ -93,8 +99,9 @@ class RedisServerTest {
     void errorRepliesDoNotCloseTheConnection() throws Exception {
         RedisServer server = start();
         try (RawClient client = new RawClient(server.port())) {
+            String reply = "-ERR unknown command 'NOSUCH', with args beginning with: \r\n";
             client.send("NOSUCH\r\n");
-            assertEquals("-ERR unknown command 'NOSUCH'\r\n", client.readText("-ERR unknown command 'NOSUCH'\r\n".length()));
+            assertEquals(reply, client.readText(reply.length()));
             client.send("PING\r\n");
             assertEquals("+PONG\r\n", client.readText(7));
         }
@@ -245,7 +252,7 @@ class RedisServerTest {
         ServerOptions conflicting = new ServerOptions(
                 new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), first.port()),
                 taken.ioThreads(), taken.maxClients(), 0, null, 256 * 1024, 64L << 20, 16 * 1024);
-        assertThrows(IOException.class, () -> new RedisServer(conflicting, new BasicRequestHandler()));
+        assertThrows(IOException.class, () -> new RedisServer(conflicting, registry()));
     }
 
     private static byte[] concat(byte[]... parts) {

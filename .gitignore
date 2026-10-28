@@ -30,3 +30,9 @@ appendonly.aof
 redisj-local.conf
 *.pem
 *.key
+
+# Persistence data files written by a local server run
+appendonly.aof
+appendonly.aof.tmp
+dump.redisj
+dump.redisj.tmp

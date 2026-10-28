@@ -27,6 +27,7 @@ public final class ServerState {
     private final Databases databases;
     private final ExpiryManager expiry;
     private final WatchTable watches = new WatchTable();
+    private WriteLog writeLog = WriteLog.NONE;
     private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
     private final long startedAtMillis;
@@ -74,6 +75,22 @@ public final class ServerState {
      */
     public ClientTransaction findTransaction(ClientConnection client) {
         return transactions.get(client);
+    }
+
+    /**
+     * @return the sink that records successful writes (persistence), or a no-op sink
+     */
+    public WriteLog writeLog() {
+        return writeLog;
+    }
+
+    /**
+     * Replaces the write log. Call after any replay, so that replayed writes are not logged again.
+     *
+     * @param log the new sink
+     */
+    public void attachWriteLog(WriteLog log) {
+        this.writeLog = Objects.requireNonNull(log, "log");
     }
 
     /**

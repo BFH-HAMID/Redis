@@ -142,6 +142,7 @@ public final class CommandRegistry implements RequestHandler {
     @Override
     public void tick() {
         state.expiry().runActiveCycle();
+        state.writeLog().tick();
     }
 
     /**

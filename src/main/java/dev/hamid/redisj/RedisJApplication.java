@@ -5,6 +5,7 @@ import dev.hamid.redisj.config.ConfigException;
 import dev.hamid.redisj.command.CommandRegistry;
 import dev.hamid.redisj.command.ServerState;
 import dev.hamid.redisj.config.ServerConfig;
+import dev.hamid.redisj.persistence.Persistence;
 import dev.hamid.redisj.server.RedisServer;
 import dev.hamid.redisj.server.ServerOptions;
 import java.io.IOException;
@@ -115,9 +116,13 @@ public final class RedisJApplication {
         ServerState state = new ServerState(config.databases(), config.requirePass().orElse(null),
                 System::currentTimeMillis);
         CommandRegistry registry = CommandRegistry.withDefaults(state);
+        Persistence persistence = Persistence.open(state, registry, Path.of("."), config.appendOnly());
         RedisServer server = new RedisServer(ServerOptions.from(config), registry);
         state.attachClients(server::clients);
-        Runtime.getRuntime().addShutdownHook(new Thread(server::close, "redisj-shutdown"));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            server.close();
+            persistence.close();
+        }, "redisj-shutdown"));
         server.start();
         System.out.println("Ready to accept connections on " + config.bind() + ":" + server.port());
         server.awaitTermination(0);

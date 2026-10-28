@@ -168,6 +168,9 @@ public final class ClientConnection implements SelectHandler {
      * @param value the reply
      */
     public void reply(RespValue value) {
+        if (owner == null) {
+            return;
+        }
         RespWriter writer = protocol == ProtocolVersion.RESP3 ? RESP3_WRITER : RESP2_WRITER;
         int size = writer.encodedLength(value);
         ByteBuffer buffer = ByteBuffer.allocate(size);
@@ -194,7 +197,7 @@ public final class ClientConnection implements SelectHandler {
      * Closes the connection now, discarding unsent replies. Safe to call from any thread.
      */
     public void requestClose() {
-        if (!closing) {
+        if (owner != null && !closing) {
             closing = true;
             owner.execute(this::closeNow);
         }
@@ -205,6 +208,17 @@ public final class ClientConnection implements SelectHandler {
      */
     public long lastActivityMillis() {
         return lastActivityMillis;
+    }
+
+    /**
+     * Creates a connection with no socket, used to replay commands at startup. Replies are
+     * discarded, and close requests are ignored.
+     *
+     * @param id the id to give the connection
+     * @return a detached, already authenticated connection
+     */
+    public static ClientConnection detached(long id) {
+        return new ClientConnection(id, null, null, ServerOptions.ephemeral(), null, true);
     }
 
     // ---------------------------------------------------------------- owner-loop internals
@@ -304,6 +318,9 @@ public final class ClientConnection implements SelectHandler {
      * Schedules a flush on the owner loop. Coalesces repeated calls into one task.
      */
     private void scheduleFlush() {
+        if (owner == null) {
+            return;
+        }
         if (flushScheduled.compareAndSet(false, true)) {
             owner.execute(this::flushFromOwner);
         }
@@ -391,6 +408,9 @@ public final class ClientConnection implements SelectHandler {
     }
 
     private static String describeRemote(SocketChannel channel) {
+        if (channel == null) {
+            return "detached";
+        }
         try {
             return String.valueOf(channel.getRemoteAddress());
         } catch (IOException e) {

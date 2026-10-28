@@ -66,15 +66,8 @@ public final class WatchTable {
             touchDb(db);
             return;
         }
-        int first = command.firstKey();
-        if (first <= 0) {
-            return;
-        }
-        Args args = ctx.args();
-        int last = command.lastKey() < 0 ? args.size() + command.lastKey() : command.lastKey();
-        int step = Math.max(command.step(), 1);
-        for (int i = first; i <= last && i < args.size(); i += step) {
-            touch(db, args.key(i));
+        for (String key : KeySpec.keysOf(command, ctx.args())) {
+            touch(db, key);
         }
     }
 

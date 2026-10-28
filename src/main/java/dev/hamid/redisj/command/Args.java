@@ -24,6 +24,13 @@ public final class Args {
     }
 
     /**
+     * @return the raw argument bytes, in order, including the command name; unmodifiable
+     */
+    public List<byte[]> items() {
+        return items;
+    }
+
+    /**
      * @return the number of arguments, including the command name
      */
     public int size() {

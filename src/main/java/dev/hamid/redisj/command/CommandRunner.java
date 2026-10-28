@@ -21,6 +21,7 @@ public final class CommandRunner {
         RespValue reply = command.execute(ctx);
         if (command.flags().contains(Command.Flag.WRITE)) {
             ctx.server().watches().markWritten(command, ctx);
+            ctx.server().writeLog().recordWrite(ctx, command);
         }
         return reply;
     }

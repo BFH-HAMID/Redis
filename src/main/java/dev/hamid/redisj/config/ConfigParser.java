@@ -122,6 +122,7 @@ public final class ConfigParser {
                 case "requirepass" -> b.requirePass(single(name, args));
                 case "appendonly" -> b.appendOnly(parseYesNo(name, single(name, args)));
                 case "maxmemory" -> b.maxMemory(MemorySize.parse(single(name, args)));
+                case "maxmemory-policy" -> b.maxMemoryPolicy(single(name, args));
                 case "databases" -> b.databases(parseInt(name, single(name, args)));
                 case "timeout" -> b.timeoutSeconds(parseInt(name, single(name, args)));
                 case "io-threads" -> b.ioThreads(parseInt(name, single(name, args)));

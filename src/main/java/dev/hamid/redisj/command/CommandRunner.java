@@ -18,10 +18,14 @@ public final class CommandRunner {
      * @throws CommandException if the command rejects the call
      */
     public static RespValue run(Command command, CommandContext ctx) {
+        boolean write = command.flags().contains(Command.Flag.WRITE);
+        if (write && !Eviction.makeRoom(ctx.server(), command.name())) {
+            throw new CommandException("OOM command not allowed when used memory > 'maxmemory'.");
+        }
         RespValue reply = command.execute(ctx);
-        if (command.flags().contains(Command.Flag.WRITE)) {
+        if (write) {
             ctx.server().watches().markWritten(command, ctx);
-            ctx.server().writeLog().recordWrite(ctx, command);
+            ctx.server().writeLog().recordWrite(ctx, command, reply);
         }
         return reply;
     }

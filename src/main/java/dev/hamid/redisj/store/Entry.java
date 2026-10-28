@@ -63,6 +63,9 @@ public final class Entry {
         if (value instanceof java.util.LinkedHashSet<?>) {
             return "set";
         }
+        if (value instanceof Stream) {
+            return "stream";
+        }
         return "unknown";
     }
 }

@@ -10,6 +10,7 @@ import dev.hamid.redisj.command.handlers.ListCommands;
 import dev.hamid.redisj.command.handlers.PubSubCommands;
 import dev.hamid.redisj.command.handlers.ScanCommands;
 import dev.hamid.redisj.command.handlers.SetCommands;
+import dev.hamid.redisj.command.handlers.StreamCommands;
 import dev.hamid.redisj.command.handlers.StringCommands;
 import dev.hamid.redisj.command.handlers.TransactionCommands;
 import dev.hamid.redisj.protocol.RespValue;
@@ -69,6 +70,7 @@ public final class CommandRegistry implements RequestHandler {
         CounterCommands.register(registry);
         TransactionCommands.register(registry);
         PubSubCommands.register(registry);
+        StreamCommands.register(registry);
         return registry;
     }
 

@@ -7,8 +7,8 @@ RedisJ is a RESP-compatible, production-grade in-memory data store written in Ja
 The goal is to work with the real `redis-cli`, Jedis and Lettuce clients.
 
 > **Status:** Phases 1-4 committed; Phases 5 (lists, hashes, sets), 6 (transactions), 7 (AOF and
-> snapshots) and 8 (pub/sub) written. CI is failing and nothing in Phases 2-8 has been verified by a
-> build yet. See the roadmap below.
+> snapshots), 8 (pub/sub) and 9 (streams and eviction) written. CI is failing and nothing in Phases
+> 2-9 has been verified by a build yet. See the roadmap below.
 
 ## Build
 
@@ -44,6 +44,7 @@ socket reads, parsing and writes onto N I/O loops. Commands still run on the sin
 - Sets: `SADD`, `SREM`, `SISMEMBER`, `SMEMBERS`, `SCARD`
 - Transactions: `MULTI`, `EXEC`, `DISCARD`, `WATCH`, `UNWATCH`
 - Persistence: `SAVE` (see below)
+- Streams: `XADD`, `XLEN`, `XRANGE`, `XREVRANGE`, `XDEL`, `XTRIM`, `XREAD` (non-blocking)
 - Pub/sub: `SUBSCRIBE`, `UNSUBSCRIBE`, `PSUBSCRIBE`, `PUNSUBSCRIBE`, `PUBLISH`, `PUBSUB CHANNELS|NUMSUB|NUMPAT`
 
 Expired keys are removed on access and by an active cycle that runs about every 100 ms. When
@@ -67,6 +68,19 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 - The snapshot format is a RESP command stream that rebuilds the dataset. It is **not** Redis's binary
   RDB format, so RDB files from a real Redis server cannot be loaded. `BGSAVE` is not implemented.
 
+## Streams and memory limits
+
+- Streams keep entries ordered by ID. `XADD` accepts `*`, `ms-*`, or an explicit `ms-seq`, and
+  `MAXLEN` trims the oldest entries. The last ID is kept even after deletes, so IDs keep increasing.
+- `XREAD` is non-blocking. `BLOCK` returns an error for now.
+- `maxmemory` limits the estimated size of the dataset. `maxmemory-policy` is `noeviction` (writes
+  are refused with `OOM`) or `allkeys-random` (random keys are removed). `DEL`, `UNLINK`, `FLUSHDB`
+  and `FLUSHALL` are always allowed.
+- Memory is estimated from payload sizes plus rough per-object overhead. It is not the JVM's real
+  heap use. Each write scans every key while a limit is set, so the cost grows with the dataset.
+- Evictions are logged to the append-only file as `DEL`, so replay removes the same keys.
+- Not implemented: `allkeys-lru`, `volatile-*` policies, and blocking `XREAD`.
+
 ## Pub/sub
 
 - A connection that holds at least one subscription can run only `SUBSCRIBE`, `UNSUBSCRIBE`,
@@ -89,7 +103,7 @@ options override file values. Supported directives so far: `port`, `bind`, `requ
 | 6 | Transactions (MULTI/EXEC, WATCH) | Written, not yet verified |
 | 7 | AOF and snapshots | Written, not yet verified |
 | 8 | Pub/Sub | Written, not yet verified |
-| 9 | Streams and eviction | Planned |
+| 9 | Streams and eviction | Written, not yet verified |
 | 10-11 | Replication, cluster, Raft | Planned |
 | 12-13 | HLL/Bloom/Geo, vector search | Planned |
 | 14-16 | Security, scripting, observability | Planned |

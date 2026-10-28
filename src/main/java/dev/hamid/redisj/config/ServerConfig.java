@@ -1,5 +1,6 @@
 package dev.hamid.redisj.config;
 
+import dev.hamid.redisj.store.EvictionPolicy;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,6 +36,7 @@ public final class ServerConfig {
     private final String requirePass;
     private final boolean appendOnly;
     private final long maxMemory;
+    private final String maxMemoryPolicy;
     private final int databases;
     private final int timeoutSeconds;
     private final int ioThreads;
@@ -46,6 +48,7 @@ public final class ServerConfig {
         this.requirePass = b.requirePass;
         this.appendOnly = b.appendOnly;
         this.maxMemory = b.maxMemory;
+        this.maxMemoryPolicy = b.maxMemoryPolicy;
         this.databases = b.databases;
         this.timeoutSeconds = b.timeoutSeconds;
         this.ioThreads = b.ioThreads;
@@ -94,6 +97,7 @@ public final class ServerConfig {
         b.requirePass = requirePass;
         b.appendOnly = appendOnly;
         b.maxMemory = maxMemory;
+        b.maxMemoryPolicy = maxMemoryPolicy;
         b.databases = databases;
         b.timeoutSeconds = timeoutSeconds;
         b.ioThreads = ioThreads;
@@ -134,6 +138,13 @@ public final class ServerConfig {
      */
     public long maxMemory() {
         return maxMemory;
+    }
+
+    /**
+     * @return the eviction policy name, {@code noeviction} or {@code allkeys-random}
+     */
+    public String maxMemoryPolicy() {
+        return maxMemoryPolicy;
     }
 
     /**
@@ -188,6 +199,7 @@ public final class ServerConfig {
         private String requirePass;
         private boolean appendOnly;
         private long maxMemory;
+        private String maxMemoryPolicy = "noeviction";
         private int databases = DEFAULT_DATABASES;
         private int timeoutSeconds;
         private int ioThreads = DEFAULT_IO_THREADS;
@@ -235,6 +247,15 @@ public final class ServerConfig {
          */
         public Builder appendOnly(boolean enabled) {
             this.appendOnly = enabled;
+            return this;
+        }
+
+        /**
+         * @param bytes memory limit in bytes, {@code 0} for unlimited
+         * @return this builder
+         */
+        public Builder maxMemoryPolicy(String policy) {
+            this.maxMemoryPolicy = EvictionPolicy.parse(policy).directive();
             return this;
         }
 

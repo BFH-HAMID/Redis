@@ -6,6 +6,8 @@ import dev.hamid.redisj.command.CommandRegistry;
 import dev.hamid.redisj.command.KeySpec;
 import dev.hamid.redisj.command.ServerState;
 import dev.hamid.redisj.command.WriteLog;
+import dev.hamid.redisj.command.handlers.StreamCommands;
+import dev.hamid.redisj.protocol.RespValue;
 import dev.hamid.redisj.store.Database;
 import dev.hamid.redisj.store.Entry;
 import java.io.IOException;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -77,12 +80,17 @@ public final class Persistence implements WriteLog, AutoCloseable {
         Path aofPath = dir.resolve(AOF_FILE);
         Path snapshotPath = dir.resolve(SNAPSHOT_FILE);
         Persistence persistence;
+        state.setReplaying(true);
+        Replayer.Result result;
+        try {
+            result = Replayer.replay(appendOnly ? aofPath : snapshotPath, registry);
+        } finally {
+            state.setReplaying(false);
+        }
         if (appendOnly) {
-            Replayer.Result result = Replayer.replay(aofPath, registry);
             persistence = new Persistence(state, true, aofPath, snapshotPath,
                     AppendOnlyFile.open(aofPath), result.lastDb());
         } else {
-            Replayer.replay(snapshotPath, registry);
             persistence = new Persistence(state, false, aofPath, snapshotPath, null, 0);
         }
         PersistenceCommands.register(registry, persistence);
@@ -97,7 +105,7 @@ public final class Persistence implements WriteLog, AutoCloseable {
      *                              server reports an error for it
      */
     @Override
-    public void recordWrite(CommandContext ctx, Command command) {
+    public void recordWrite(CommandContext ctx, Command command, RespValue reply) {
         if (!appendOnly) {
             return;
         }
@@ -106,11 +114,13 @@ public final class Persistence implements WriteLog, AutoCloseable {
         }
         try {
             int db = ctx.client().db();
-            if (db != streamDb) {
-                aof.append(ArgvCodec.encodeText("SELECT", Integer.toString(db)));
-                streamDb = db;
+            selectDb(db);
+            List<byte[]> argv = new ArrayList<>(ctx.args().items());
+            if (command.name().equals("XADD") && reply instanceof RespValue.BulkString id) {
+                // Log the ID that was actually assigned, so replay does not generate another.
+                argv.set(StreamCommands.idIndex(ctx.args()), id.bytes());
             }
-            aof.append(ArgvCodec.encode(ctx.args().items()));
+            aof.append(ArgvCodec.encode(argv));
             Database database = ctx.db();
             for (String key : KeySpec.keysOf(command, ctx.args())) {
                 Entry entry = database.get(key);
@@ -123,6 +133,34 @@ public final class Persistence implements WriteLog, AutoCloseable {
             }
         } catch (IOException e) {
             throw new UncheckedIOException("append-only file write failed", e);
+        }
+    }
+
+    /**
+     * Records the eviction of a key as {@code DEL}, so that replay removes the same key.
+     *
+     * @param db  the database the key was in
+     * @param key the evicted key
+     */
+    @Override
+    public void recordEviction(int db, String key) {
+        if (!appendOnly || aof == null) {
+            return;
+        }
+        try {
+            selectDb(db);
+            aof.append(ArgvCodec.encode(List.of("DEL".getBytes(StandardCharsets.US_ASCII),
+                    key.getBytes(StandardCharsets.ISO_8859_1))));
+        } catch (IOException e) {
+            throw new UncheckedIOException("append-only file write failed", e);
+        }
+    }
+
+    /** Writes a SELECT to the append-only file if the stream is not already in database {@code db}. */
+    private void selectDb(int db) throws IOException {
+        if (db != streamDb) {
+            aof.append(ArgvCodec.encodeText("SELECT", Integer.toString(db)));
+            streamDb = db;
         }
     }
 

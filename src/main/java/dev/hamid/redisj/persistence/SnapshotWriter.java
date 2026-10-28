@@ -3,6 +3,8 @@ package dev.hamid.redisj.persistence;
 import dev.hamid.redisj.command.ServerState;
 import dev.hamid.redisj.store.Database;
 import dev.hamid.redisj.store.Entry;
+import dev.hamid.redisj.store.Stream;
+import dev.hamid.redisj.store.StreamId;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -89,8 +91,34 @@ public final class SnapshotWriter {
                 argv.add(text((String) member));
             }
             out.write(ArgvCodec.encode(argv));
+        } else if (value instanceof Stream stream) {
+            writeStream(out, key, stream);
         } else {
             throw new IOException("cannot snapshot value of type " + value.getClass().getName());
+        }
+    }
+
+    /**
+     * Writes each entry as an explicit XADD. If the last ID is newer than the newest entry, which
+     * happens after deletes or trims, a marker entry is added and removed again so the stream keeps
+     * its last ID.
+     */
+    private static void writeStream(OutputStream out, String key, Stream stream) throws IOException {
+        StreamId top = StreamId.MIN;
+        for (Map.Entry<StreamId, List<byte[]>> entry : stream.entries().entrySet()) {
+            List<byte[]> argv = new ArrayList<>();
+            argv.add(text("XADD"));
+            argv.add(text(key));
+            argv.add(text(entry.getKey().toString()));
+            argv.addAll(entry.getValue());
+            out.write(ArgvCodec.encode(argv));
+            top = entry.getKey();
+        }
+        StreamId last = stream.lastId();
+        if (last.compareTo(top) > 0) {
+            out.write(ArgvCodec.encode(List.of(text("XADD"), text(key), text(last.toString()),
+                    text("_"), text("_"))));
+            out.write(ArgvCodec.encode(List.of(text("XDEL"), text(key), text(last.toString()))));
         }
     }
 

@@ -2,6 +2,7 @@ package dev.hamid.redisj.command;
 
 import dev.hamid.redisj.pubsub.PubSub;
 import dev.hamid.redisj.server.ClientConnection;
+import dev.hamid.redisj.store.EvictionPolicy;
 import dev.hamid.redisj.store.Databases;
 import dev.hamid.redisj.store.ExpiryManager;
 import java.util.Collection;
@@ -29,6 +30,9 @@ public final class ServerState {
     private final ExpiryManager expiry;
     private final WatchTable watches = new WatchTable();
     private final PubSub pubsub = new PubSub();
+    private long maxMemory;
+    private EvictionPolicy evictionPolicy = EvictionPolicy.NOEVICTION;
+    private boolean replaying;
     private WriteLog writeLog = WriteLog.NONE;
     private final Map<ClientConnection, ClientTransaction> transactions = new HashMap<>();
     private final String requirePass;
@@ -113,6 +117,49 @@ public final class ServerState {
             watches.unwatchAll(tx);
         }
         pubsub.releaseClient(client);
+    }
+
+    /**
+     * Sets the memory limit and eviction policy. Called once at startup, before the server accepts
+     * clients.
+     *
+     * @param maxMemoryBytes the limit in bytes, {@code 0} for unlimited
+     * @param policy         what to do when the limit is exceeded
+     */
+    public void configureMemory(long maxMemoryBytes, EvictionPolicy policy) {
+        this.maxMemory = maxMemoryBytes;
+        this.evictionPolicy = Objects.requireNonNull(policy, "policy");
+    }
+
+    /**
+     * @return the memory limit in bytes, {@code 0} for unlimited
+     */
+    public long maxMemory() {
+        return maxMemory;
+    }
+
+    /**
+     * @return the eviction policy
+     */
+    public EvictionPolicy evictionPolicy() {
+        return evictionPolicy;
+    }
+
+    /**
+     * Marks the server as replaying its persistence files. Eviction is skipped while replaying,
+     * because the files already record every eviction.
+     *
+     * @param replaying {@code true} while replaying
+     */
+    public void setReplaying(boolean replaying) {
+        this.replaying = replaying;
+    }
+
+    /**
+     * @return {@code true} while replaying persistence files
+     */
+    public boolean replaying() {
+        return replaying;
     }
 
     /**

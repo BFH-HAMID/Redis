@@ -7,6 +7,7 @@ import dev.hamid.redisj.command.ServerState;
 import dev.hamid.redisj.config.ServerConfig;
 import dev.hamid.redisj.persistence.Persistence;
 import dev.hamid.redisj.server.RedisServer;
+import dev.hamid.redisj.store.EvictionPolicy;
 import dev.hamid.redisj.server.ServerOptions;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -115,6 +116,7 @@ public final class RedisJApplication {
     static void serveUntilShutdown(ServerConfig config) throws Exception {
         ServerState state = new ServerState(config.databases(), config.requirePass().orElse(null),
                 System::currentTimeMillis);
+        state.configureMemory(config.maxMemory(), EvictionPolicy.parse(config.maxMemoryPolicy()));
         CommandRegistry registry = CommandRegistry.withDefaults(state);
         Persistence persistence = Persistence.open(state, registry, Path.of("."), config.appendOnly());
         RedisServer server = new RedisServer(ServerOptions.from(config), registry);
